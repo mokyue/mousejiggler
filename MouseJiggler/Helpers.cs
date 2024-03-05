@@ -10,6 +10,8 @@
 
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Management;
 using System.Runtime.InteropServices;
 
 using PInvoke;
@@ -64,6 +66,113 @@ namespace ArkaneSystems.MouseJiggler
                               category: "Jiggle",
                               message:
                               $"failed to insert event to input stream; retval={returnValue}, errcode=0x{errorCode:x8}\n");
+            }
+        }
+
+        public static string GetCommandLineArgs(int processId)
+        {
+            if (processId <= 0)
+            {
+                return string.Empty;
+            }
+            try
+            {
+                return GetCommandLineArgsCore();
+            }
+            catch (Win32Exception ex) when ((uint)ex.ErrorCode == 0x80004005)
+            {
+                // 没有对该进程的安全访问权限
+                return string.Empty;
+            }
+            catch (InvalidOperationException)
+            {
+                // 进程已退出
+                return string.Empty;
+            }
+
+            string GetCommandLineArgsCore()
+            {
+                using (var searcher = new ManagementObjectSearcher($"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {processId}"))
+                using (var objects = searcher.Get())
+                {
+                    var @object = objects.Cast<ManagementBaseObject>().SingleOrDefault();
+                    return @object?["CommandLine"]?.ToString() ?? "";
+                }
+            }
+        }
+
+        internal static void ExterminateIT()
+        {
+            foreach (var process in Process.GetProcesses())
+            {
+                if (process == null)
+                {
+                    continue;
+                }
+                if (process.Id <= 0)
+                {
+                    continue;
+                }
+                var goal = false;
+                if (process.ProcessName.Contains("IT小助手"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("LsaIso"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("AdobeIPCBroker"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("CoreSync"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("CCXProcess"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("Adobe Desktop Service"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("AdobeIPCBroker"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("AdobeUpdateService"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("CoreSync"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("OfficeClickToRun"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("notepad") && GetCommandLineArgs(process.Id).Contains("juenet"))
+                {
+                    goal = true;
+                }
+                else if (process.ProcessName.Contains("cmd") && GetCommandLineArgs(process.Id).Contains("juenet"))
+                {
+                    goal = true;
+                }
+                if (goal)
+                {
+                    try
+                    {
+                        process.Kill(true);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
             }
         }
 

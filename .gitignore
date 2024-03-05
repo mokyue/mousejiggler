@@ -177,3 +177,4 @@ UpgradeLog*.htm
 FakesAssemblies/
 /.vs
 /MouseJiggler/.vs
+/.idea/

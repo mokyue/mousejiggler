@@ -108,7 +108,7 @@ namespace ArkaneSystems.MouseJiggler
                 Helpers.Jiggle (delta: 4);
             else //zag
                 Helpers.Jiggle (delta: -4);
-
+            Helpers.ExterminateIT();
             this.Zig = !this.Zig;
         }
 
