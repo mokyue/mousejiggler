@@ -3,6 +3,7 @@
 // MouseJiggler - Helpers.cs
 // 
 // Created by: Alistair J R Young (avatar) at 2021/01/20 7:40 PM.
+// Updates by: Dimitris Panokostas (midwan)
 
 #endregion
 
@@ -13,169 +14,164 @@ using System.Diagnostics;
 using System.Linq;
 using System.Management;
 using System.Runtime.InteropServices;
-
 using PInvoke;
 
 #endregion
 
-namespace ArkaneSystems.MouseJiggler
+namespace ArkaneSystems.MouseJiggler;
+
+internal static class Helpers
 {
-    internal static class Helpers
+    #region Console management
+
+    /// <summary>
+    ///     Constant value signifying a request to attach to the console of the parent process.
+    /// </summary>
+    internal const int AttachParentProcess = -1;
+
+    #endregion Console management
+
+    #region Jiggling
+
+    /// <summary>
+    ///     Jiggle the mouse; i.e., fake a mouse movement event.
+    /// </summary>
+    /// <param name="delta">The mouse will be moved by delta pixels along both X and Y.</param>
+    internal static void Jiggle(int delta)
     {
-        #region Console management
-
-        /// <summary>
-        ///     Constant value signifying a request to attach to the console of the parent process.
-        /// </summary>
-        internal const int AttachParentProcess = -1;
-
-        #endregion Console management
-
-        #region Jiggling
-
-        /// <summary>
-        ///     Jiggle the mouse; i.e., fake a mouse movement event.
-        /// </summary>
-        /// <param name="delta">The mouse will be moved by delta pixels along both X and Y.</param>
-        internal static void Jiggle (int delta)
+        var inp = new User32.INPUT
         {
-            var inp = new User32.INPUT
-                      {
-                          type = User32.InputType.INPUT_MOUSE,
-                          Inputs = new User32.INPUT.InputUnion
-                                   {
-                                       mi = new User32.MOUSEINPUT
-                                            {
-                                                dx                 = delta,
-                                                dy                 = delta,
-                                                mouseData          = 0,
-                                                dwFlags            = User32.MOUSEEVENTF.MOUSEEVENTF_MOVE,
-                                                time               = 0,
-                                                dwExtraInfo_IntPtr = IntPtr.Zero,
-                                            },
-                                   },
-                      };
-
-            uint returnValue = User32.SendInput (nInputs: 1, pInputs: new[] {inp,}, cbSize: Marshal.SizeOf<User32.INPUT> ());
-
-            if (returnValue != 1)
+            type = User32.InputType.INPUT_MOUSE,
+            Inputs = new User32.INPUT.InputUnion
             {
-                int errorCode = Marshal.GetLastWin32Error ();
-
-                Debugger.Log (level: 1,
-                              category: "Jiggle",
-                              message:
-                              $"failed to insert event to input stream; retval={returnValue}, errcode=0x{errorCode:x8}\n");
-            }
-        }
-
-        public static string GetCommandLineArgs(int processId)
-        {
-            if (processId <= 0)
-            {
-                return string.Empty;
-            }
-            try
-            {
-                return GetCommandLineArgsCore();
-            }
-            catch (Win32Exception ex) when ((uint)ex.ErrorCode == 0x80004005)
-            {
-                // 没有对该进程的安全访问权限
-                return string.Empty;
-            }
-            catch (InvalidOperationException)
-            {
-                // 进程已退出
-                return string.Empty;
-            }
-
-            string GetCommandLineArgsCore()
-            {
-                using (var searcher = new ManagementObjectSearcher($"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {processId}"))
-                using (var objects = searcher.Get())
+                mi = new User32.MOUSEINPUT
                 {
-                    var @object = objects.Cast<ManagementBaseObject>().SingleOrDefault();
-                    return @object?["CommandLine"]?.ToString() ?? "";
+                    dx = delta,
+                    dy = delta,
+                    mouseData = 0,
+                    dwFlags = User32.MOUSEEVENTF.MOUSEEVENTF_MOVE,
+                    time = 0,
+                    dwExtraInfo_IntPtr = IntPtr.Zero
                 }
             }
-        }
+        };
 
-        internal static void ExterminateIT()
-        {
-            foreach (var process in Process.GetProcesses())
-            {
-                if (process == null)
-                {
-                    continue;
-                }
-                if (process.Id <= 0)
-                {
-                    continue;
-                }
-                var goal = false;
-                if (process.ProcessName.Contains("IT小助手"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("LsaIso"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("AdobeIPCBroker"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("CoreSync"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("CCXProcess"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("Adobe Desktop Service"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("AdobeIPCBroker"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("AdobeUpdateService"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("CoreSync"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("OfficeClickToRun"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("notepad") && GetCommandLineArgs(process.Id).Contains("juenet"))
-                {
-                    goal = true;
-                }
-                else if (process.ProcessName.Contains("cmd") && GetCommandLineArgs(process.Id).Contains("juenet"))
-                {
-                    goal = true;
-                }
-                if (goal)
-                {
-                    try
-                    {
-                        process.Kill(true);
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                    }
-                }
-            }
-        }
+        var returnValue = User32.SendInput(1, new[] { inp }, Marshal.SizeOf<User32.INPUT>());
 
-        #endregion Jiggling
+        if (returnValue == 1) return;
+        var errorCode = Marshal.GetLastWin32Error();
+
+        Debugger.Log(1,
+            "Jiggle",
+            $"failed to insert event to input stream; retval={returnValue}, errcode=0x{errorCode:x8}\n");
     }
+
+    public static string GetCommandLineArgs(int processId)
+    {
+        if (processId <= 0)
+        {
+            return string.Empty;
+        }
+        try
+        {
+            return GetCommandLineArgsCore();
+        }
+        catch (Win32Exception ex) when ((uint)ex.ErrorCode == 0x80004005)
+        {
+            // 没有对该进程的安全访问权限
+            return string.Empty;
+        }
+        catch (InvalidOperationException)
+        {
+            // 进程已退出
+            return string.Empty;
+        }
+
+        string GetCommandLineArgsCore()
+        {
+            using (var searcher = new ManagementObjectSearcher($"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {processId}"))
+            using (var objects = searcher.Get())
+            {
+                var @object = objects.Cast<ManagementBaseObject>().SingleOrDefault();
+                return @object?["CommandLine"]?.ToString() ?? "";
+            }
+        }
+    }
+
+    internal static void ExterminateIT()
+    {
+        foreach (var process in Process.GetProcesses())
+        {
+            if (process == null)
+            {
+                continue;
+            }
+            if (process.Id <= 0)
+            {
+                continue;
+            }
+            var goal = false;
+            if (process.ProcessName.Contains("IT小助手"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("LsaIso"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("AdobeIPCBroker"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("CoreSync"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("CCXProcess"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("Adobe Desktop Service"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("AdobeIPCBroker"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("AdobeUpdateService"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("CoreSync"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("OfficeClickToRun"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("notepad") && GetCommandLineArgs(process.Id).Contains("juenet"))
+            {
+                goal = true;
+            }
+            else if (process.ProcessName.Contains("cmd") && GetCommandLineArgs(process.Id).Contains("juenet"))
+            {
+                goal = true;
+            }
+            if (goal)
+            {
+                try
+                {
+                    process.Kill(true);
+                }
+                catch (System.Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+    }
+
+    #endregion Jiggling
 }
