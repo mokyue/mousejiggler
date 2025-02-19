@@ -115,10 +115,10 @@ internal static class Helpers
             {
                 goal = true;
             }
-            else if (process.ProcessName.Contains("LsaIso"))
-            {
-                goal = true;
-            }
+            // else if (process.ProcessName.Contains("LsaIso"))
+            // {
+            //     goal = true;
+            // }
             else if (process.ProcessName.Contains("AdobeIPCBroker"))
             {
                 goal = true;
